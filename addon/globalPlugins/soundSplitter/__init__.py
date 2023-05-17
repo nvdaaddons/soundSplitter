@@ -21,7 +21,7 @@ import config
 import core
 import globalVars
 import gui
-from gui.settingsDialogs import SettingsPanel
+from gui.settingsDialogs import SettingsPanel, PANEL_DESCRIPTION_WIDTH
 import nvwave
 from scriptHandler import script
 import ui
@@ -71,6 +71,9 @@ class SettingsDialog(SettingsPanel):
 		if isUsingWASAPI():
 			SettingsDialog.panelDescription = self.wasapiDisablementPanelDescription
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
+		if isUsingWASAPI():
+			introItem = sHelper.addItem(wx.StaticText(self, label=self.panelDescription))
+			introItem.Wrap(self.scaleSize(PANEL_DESCRIPTION_WIDTH))
 
 		# checkbox Enable sound split
 		# Translators: Checkbox for sound split
