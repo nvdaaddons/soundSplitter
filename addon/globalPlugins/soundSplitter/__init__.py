@@ -12,6 +12,7 @@
 
 import ctypes
 import types
+from types import Optional
 import wx
 import os
 
