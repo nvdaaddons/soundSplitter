@@ -69,7 +69,7 @@ class SettingsDialog(SettingsPanel):
 	def makeSettings(self, settingsSizer) -> None:
 		# Panel description is an apology notification if WASAPI is enabled
 		if isUsingWASAPI():
-			SettingsDialog.panelDescription = wasapiDisablementPanelDescription
+			SettingsDialog.panelDescription = self.wasapiDisablementPanelDescription
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
 
 		# checkbox Enable sound split
