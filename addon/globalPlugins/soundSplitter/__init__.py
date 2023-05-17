@@ -97,7 +97,7 @@ class SettingsDialog(SettingsPanel):
 originalWaveOpen = None
 
 
-def preWaveOpen(selfself, *args, **kwargs):
+def noWASAPI_preWaveOpen(selfself, *args, **kwargs):
 	global originalWaveOpen
 	result = originalWaveOpen(selfself, *args, **kwargs)
 	# All we care about is splitting sounds, so set volume to 100 percent always.
@@ -113,6 +113,8 @@ def preWaveOpen(selfself, *args, **kwargs):
 	winmm.waveOutSetVolume(selfself._waveout, volume2)
 	return result
 
+if not isUsingWASAPI():
+	preWaveOpen = noWASAPI_preWaveOpen
 
 def setAppsVolume(volumes=None, exit=False):
 	from . pycaw.pycaw import AudioUtilities, IChannelAudioVolume
@@ -153,7 +155,10 @@ soundSplitterMonitorCounter = 0
 def soundSplitterMonitorThread(localSoundSplitterMonitorCounter):
 	global soundSplitterMonitorCounter
 	while localSoundSplitterMonitorCounter == soundSplitterMonitorCounter:
-		if not config.conf["soundSplitter"]["soundSplit"]:
+		if (
+			not config.conf["soundSplitter"]["soundSplit"]
+			or isUsingWASAPI()
+		):
 			return
 		setAppsVolume()
 		yield 1000
@@ -161,7 +166,7 @@ def soundSplitterMonitorThread(localSoundSplitterMonitorCounter):
 
 def updateSoundSplitterMonitorThread(exit=False):
 	# Ignore all this if secure flag is in effect.
-	if globalVars.appArgs.secure:
+	if globalVars.appArgs.secure or isUsingWASAPI():
 		return
 	global soundSplitterMonitorCounter
 	soundSplitterMonitorCounter += 1
@@ -200,6 +205,12 @@ def executeAsynchronously(gen):
 
 updateSoundSplitterMonitorThread()
 
+wasapiDisablementMessage = _(
+	# Translators: Spoken if WASAPI is in use, and the user tries to use the add-on.
+	"Sound Splitter is disabled while WASAPI is being used. "
+	"Please Turn off WASAPI in NVDA Advanced settings, and try again."
+)
+
 
 @disableInSecureMode
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
@@ -212,15 +223,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
 		config.post_configProfileSwitch.register(self.handleConfigProfileSwitch)
 		config.post_configReset.register(self.reload)
-		originalWaveOpen = nvwave.WavePlayer.open
-		nvwave.WavePlayer.open = preWaveOpen
+		if not isUsingWASAPI():
+			originalWaveOpen = nvwave.WavePlayer.open
+			nvwave.WavePlayer.open = preWaveOpen
 
 	def terminate(self):
 		global originalWaveOpen
 		config.post_configProfileSwitch.unregister(self.handleConfigProfileSwitch)
 		config.post_configReset.unregister(self.reload)
 		updateSoundSplitterMonitorThread(exit=True)
-		nvwave.WavePlayer.open = originalWaveOpen
+		if not isUsingWASAPI():
+			nvwave.WavePlayer.open = originalWaveOpen
 		gui.settingsDialogs.NVDASettingsDialog.categoryClasses.remove(SettingsDialog)
 		super().terminate()  # Probably unnecessary but maybe needed in the future
 
@@ -236,6 +249,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gesture="kb:NVDA+Alt+S"
 	)
 	def script_toggleSoundSplit(self, gesture):
+		if isUsingWASAPI():
+			ui.message(wasapiDisablementMessage)
+			return
 		soundSplit = config.conf["soundSplitter"]["soundSplit"]
 		soundSplitLeft = config.conf["soundSplitter"]["soundSplitLeft"]
 		if not soundSplit:
