@@ -43,15 +43,26 @@ def disableInSecureMode(cls):
 addonHandler.initTranslation()
 
 
+#: Tracks the state of WASAPI at NVDA startup, since it can change while running but not be effective.
+_usingWASAPIAtStartup: Optional[bool] = None
+
 def isUsingWASAPI() -> bool:
-	"""Returns True if WASAPI is enabled in NVDA, False if not or unsupported in this version."""
-	try:
-		if config.conf["audio"]["wasapi"]:
-			return True
-		else:
+	"""Returns True if WASAPI was enabled in NVDA during startup, False if not or unsupported in this version."""
+	global _usingWASAPIAtStartup
+	def reallyCheck_isUsingWASAPI() -> bool:
+		"""Nested function to do the actual checking."""
+		try:
+			if config.conf["audio"]["wasapi"]:
+				return True
+			else:
+				return False
+		except KeyError:
 			return False
-	except KeyError:
-		return False
+	# If this is the first run, establish the state for all future runs
+	if _usingWASAPIAtStartup is None:
+		_usingWASAPIAtStartup = reallyCheck_isUsingWASAPI()
+	else:
+		return _usingWASAPIAtStartup
 
 
 class SettingsDialog(SettingsPanel):
@@ -223,12 +234,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		global originalWaveOpen
-		gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
-		config.post_configProfileSwitch.register(self.handleConfigProfileSwitch)
-		config.post_configReset.register(self.reload)
 		if not isUsingWASAPI():
 			originalWaveOpen = nvwave.WavePlayer.open
 			nvwave.WavePlayer.open = preWaveOpen
+		gui.settingsDialogs.NVDASettingsDialog.categoryClasses.append(SettingsDialog)
+		config.post_configProfileSwitch.register(self.handleConfigProfileSwitch)
+		config.post_configReset.register(self.reload)
 
 	def terminate(self):
 		global originalWaveOpen
