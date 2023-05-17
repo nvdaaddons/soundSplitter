@@ -43,11 +43,33 @@ def disableInSecureMode(cls):
 addonHandler.initTranslation()
 
 
+def isUsingWASAPI() -> bool:
+	"""Returns True if WASAPI is enabled in NVDA, False if not or unsupported in this version."""
+	try:
+		if config.conf["audio"]["wasapi"]:
+			return True
+		else:
+			return False
+	except KeyError:
+		return False
+
+
 class SettingsDialog(SettingsPanel):
 	# Translators: Title for the settings dialog
 	title = _("Sound Splitter")
 
-	def makeSettings(self, settingsSizer):
+	wasapiDisablementPanelDescription = _(
+		# Translators: a message shown in the configuration panel, when WASAPI is enabled in NVDA
+		"The Sound Splitter add-on can not currently be used in this version of NVDA while "
+		"WASAPI is enabled in NVDA Advanced settings.\n"
+		"If you want to use Sound Splitter, first disable WASAPI, then restart NVDA.\n"
+		"The author apologizes for this inconvenience, and intends to support WASAPI as soon as possible."
+	)
+		
+	def makeSettings(self, settingsSizer) -> None:
+		# Panel description is an apology notification if WASAPI is enabled
+		if isUsingWASAPI():
+			SettingsDialog.panelDescription = wasapiDisablementPanelDescription
 		sHelper = gui.guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
 
 		# checkbox Enable sound split
@@ -60,6 +82,10 @@ class SettingsDialog(SettingsPanel):
 		label = _("Switch &left and right during sound split")
 		self.soundSplitLeftCheckbox = sHelper.addItem(wx.CheckBox(self, label=label))
 		self.soundSplitLeftCheckbox.Value = config.conf["soundSplitter"]["soundSplitLeft"]
+		if isUsingWASAPI():
+			self.soundSplitCheckbox.Disable()
+			self.soundSplitLeftCheckbox.Disable()
+
 
 	def onSave(self):
 		config.conf["soundSplitter"]["soundSplit"] = self.soundSplitCheckbox.Value
